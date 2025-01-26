@@ -1,0 +1,56 @@
+buildscript {
+    repositories {
+        // 添加阿里云镜像源
+        maven { url 'https://maven.aliyun.com/repository/gradle-plugin' }
+        maven { url 'https://maven.aliyun.com/repository/google' }
+        maven { url 'https://maven.aliyun.com/repository/jcenter' }
+        maven { url 'https://maven.aliyun.com/repository/public' }
+        maven { url "https://maven.aliyun.com/repository/central" }
+        google()
+        mavenCentral()
+    }
+    dependencies {
+        classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:2.1.0"
+    }
+}
+
+allprojects {
+    repositories {
+        // 添加阿里云镜像源
+        maven { url 'https://maven.aliyun.com/repository/gradle-plugin' }
+        maven { url 'https://maven.aliyun.com/repository/google' }
+        maven { url 'https://maven.aliyun.com/repository/jcenter' }
+        maven { url 'https://maven.aliyun.com/repository/public' }
+        maven { url "https://maven.aliyun.com/repository/central" }
+        google()
+        mavenCentral()
+    }
+}
+
+rootProject.buildDir = "../build"
+subprojects {
+    project.buildDir = "${rootProject.buildDir}/${project.name}"
+}
+subprojects {
+    project.evaluationDependsOn(":app")
+}
+
+gradle.projectsEvaluated {
+    tasks.withType(JavaCompile) {
+        options.compilerArgs << "-Xlint:unchecked" << "-Xlint:deprecation"
+    }
+}
+
+gradle.allprojects {
+    tasks.withType(org.gradle.api.tasks.compile.JavaCompile) {
+        options.fork = true
+        options.incremental = true
+    }
+}
+
+gradle.getStartParameter().setShowStacktrace(ShowStacktrace.ALWAYS)
+gradle.getStartParameter().setLogLevel(LogLevel.INFO)
+
+tasks.register("clean", Delete) {
+    delete rootProject.buildDir
+}
