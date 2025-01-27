@@ -72,6 +72,7 @@ dependencies:
   japanese_word_tokenizer: ^0.0.3
   ringo: ^0.0.2
   jieba_flutter: ^0.1.1  # 添加中文分词库
+  reorderables: ^0.6.0
 
 dev_dependencies:
   flutter_test:

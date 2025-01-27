@@ -36,6 +36,9 @@ class LocalTokenizerService implements TokenizerService {
         return tokens.map((token) => token).toList();
       } else {
         // 其他语言按空格分词
+        // 先去掉换行符
+        // text = text.replaceAll('\n', ' ');
+        // text = text.replaceAll('  ', ' ');
         return text.split(' ');
       }
     } catch (e) {

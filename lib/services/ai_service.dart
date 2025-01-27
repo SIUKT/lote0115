@@ -92,7 +92,7 @@ Use common slangs or native expressions appropriately to sound natural.""";
     ].join("\n");
 
     final String prompt3 = [
-      "Please respect the original meaning, maintain the original format, keep vulgar meanings if any, and rewrite the following content in $targetLanguageName or $primaryLanguageName: $content",
+      "Please respect the original meaning, maintain the original format, keep vulgar meanings if any, and rewrite the following content in $targetLanguageName or $primaryLanguageName (one language only): $content",
       if (context != null && context.isNotEmpty) contextPrompt
     ].join("\n");
     const String systemPrompt = 'Only rewrite unless asked otherwise.';
@@ -108,7 +108,7 @@ Use common slangs or native expressions appropriately to sound natural.""";
         },
         {
           'role': 'user',
-          'content': prompt3,
+          'content': prompt,
         }
       ],
       'stream': true,

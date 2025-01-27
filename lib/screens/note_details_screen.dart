@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lote0115/models/note.dart';
 import 'package:lote0115/screens/primary_details_screen.dart';
+import 'package:lote0115/widgets/scramble_text.dart';
 import 'package:lote0115/widgets/smart_selectable_text.dart';
 import 'package:lote0115/services/ai_service.dart';
 import 'package:lote0115/providers/note_provider.dart';
@@ -256,7 +257,7 @@ class _NoteDetailsScreenState extends ConsumerState<NoteDetailsScreen>
     }
   }
 
-    void _openRandomNote(List<Note> notes) {
+  void _openRandomNote(List<Note> notes) {
     if (notes.isEmpty) return;
 
     // Collect all variants except the primary one from each note
@@ -524,6 +525,34 @@ class _NoteDetailsScreenState extends ConsumerState<NoteDetailsScreen>
                                         ),
                                         const SizedBox(height: 8),
                                       ],
+                                      ...currentVariant!.content!
+                                          .split(RegExp(r'\n{2,}|\n'))
+                                          .map((paragraph) => Column(
+                                                crossAxisAlignment:
+                                                    CrossAxisAlignment.start,
+                                                children: paragraph
+                                                    .split(RegExp(
+                                                        r'(?<=[.!?。！？])\s*'))
+                                                    .where((sentence) =>
+                                                        sentence
+                                                            .trim()
+                                                            .isNotEmpty)
+                                                    .map((sentence) => Padding(
+                                                          padding:
+                                                              const EdgeInsets
+                                                                  .only(
+                                                                  bottom: 8.0),
+                                                          child: ScrambleText(
+                                                            sentence:
+                                                                sentence.trim(),
+                                                            collocations: [],
+                                                            language:
+                                                                currentVariant!
+                                                                    .language!,
+                                                          ),
+                                                        ))
+                                                    .toList(),
+                                              )),
                                       SmartSelectableText(
                                         text: currentVariant!.content!,
                                         style: Theme.of(context)
