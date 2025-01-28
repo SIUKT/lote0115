@@ -245,16 +245,14 @@ class _ScrambleTextState extends ConsumerState<ScrambleText>
                     duration: const Duration(milliseconds: 400),
                     curve: Curves.easeOutCubic,
                     child: DragTarget<int>(
-                      onWillAccept: (data) =>
-                          (_isCorrect ?? false) == false &&
-                          data != null &&
-                          data != index,
-                      onAccept: (draggedIndex) {
+                      onWillAcceptWithDetails: (data) =>
+                          (_isCorrect ?? false) == false && data.data != index,
+                      onAcceptWithDetails: (draggedIndex) {
                         if (_isCorrect != true) {
                           setState(() {
                             final temp = _elements[index];
-                            _elements[index] = _elements[draggedIndex];
-                            _elements[draggedIndex] = temp;
+                            _elements[index] = _elements[draggedIndex.data];
+                            _elements[draggedIndex.data] = temp;
                             _checkOrder();
                           });
                         }

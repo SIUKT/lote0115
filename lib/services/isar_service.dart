@@ -27,7 +27,7 @@ class IsarService {
   Future<void> initializeUserData() async {
     final existingState = await getUserData();
     if (existingState == null) {
-      final newState = UserData();
+      final newState = UserData()..languages=['zh','en'];
       await saveUserData(newState);
     }
   }

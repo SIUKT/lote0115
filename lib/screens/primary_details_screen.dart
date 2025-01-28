@@ -20,7 +20,7 @@ class PrimaryDetailsScreen extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text('Note Details'),
+        title: const Text('Note Details'),
         backgroundColor: Theme.of(context).colorScheme.surface,
       ),
       body: CustomScrollView(
@@ -177,8 +177,9 @@ class PrimaryDetailsScreen extends ConsumerWidget {
     final hasContext = note.context != null && note.context!.isNotEmpty;
     final hasTags = note.tags != null && note.tags!.isNotEmpty;
 
-    if (!hasContext && !hasTags)
+    if (!hasContext && !hasTags) {
       return const SliverToBoxAdapter(child: SizedBox.shrink());
+    }
 
     return SliverToBoxAdapter(
       child: Container(

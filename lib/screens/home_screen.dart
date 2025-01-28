@@ -145,9 +145,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     for (var note in notes) {
       if (note.variants != null) {
         for (var variant in note.variants!) {
-          if (!(variant.isPrimary == true)) {
-            allVariants.add((note, variant));
-          }
+          // if (!(variant.isPrimary == true)) {
+          allVariants.add((note, variant));
+          // }
         }
       }
     }
@@ -158,10 +158,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final random = Random();
     final randomPair = allVariants[random.nextInt(allVariants.length)];
 
-    Widget destination = NoteDetailsScreen(
-      note: randomPair.$1,
-      language: randomPair.$2.language,
-    );
+    Widget destination;
+    if (randomPair.$1.primaryLanguage == randomPair.$2.language) {
+      destination = PrimaryDetailsScreen(note: randomPair.$1);
+    } else {
+      destination = NoteDetailsScreen(
+        note: randomPair.$1,
+        language: randomPair.$2.language,
+      );
+    }
 
     // Navigate to note details screen
     Navigator.push(
@@ -205,18 +210,19 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     // fontWeight: FontWeight.bold,
                     )),
         actions: [
-          IconButton(
-            icon: Icon(_isSearching ? Icons.close : Icons.search),
-            onPressed: () {
-              setState(() {
-                if (_isSearching) {
-                  _searchController.clear();
-                  _searchQuery = '';
-                }
-                _isSearching = !_isSearching;
-              });
-            },
-          ),
+          if (notes.isNotEmpty)
+            IconButton(
+              icon: Icon(_isSearching ? Icons.close : Icons.search),
+              onPressed: () {
+                setState(() {
+                  if (_isSearching) {
+                    _searchController.clear();
+                    _searchQuery = '';
+                  }
+                  _isSearching = !_isSearching;
+                });
+              },
+            ),
           if (_languages.length > 5)
             IconButton(
               icon: const Icon(Icons.switch_access_shortcut_outlined),
@@ -229,7 +235,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 });
               },
             ),
-          if (!_isSearching)
+          if (!_isSearching && notes.isNotEmpty)
             IconButton(
               icon: const Icon(Icons.star_border_outlined),
               onPressed: () {
@@ -251,22 +257,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             ),
         ],
       ),
-      floatingActionButton: FloatingActionButton(
-        elevation: 0,
-        onPressed: () {
-          showModalBottomSheet(
-            context: context,
-            isScrollControlled: true,
-            backgroundColor: Colors.white,
-            builder: (context) => const NoteInputSheet(),
-          );
-        },
-        child: const Icon(Icons.add),
-      ),
-      floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
       body: Column(
         children: [
-          Container(
+          SizedBox(
             height: 48,
             // margin: const EdgeInsets.only(top: 8),
             child: ListView.builder(

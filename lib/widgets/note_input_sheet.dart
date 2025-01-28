@@ -540,7 +540,7 @@ class _NoteInputSheetState extends ConsumerState<NoteInputSheet> {
                                       .read(draftNoteProvider.notifier)
                                       .updateTags(newTags);
                                 } else {
-                                  print('selectedTags: ${_selectedTags}');
+                                  print('selectedTags: $_selectedTags');
                                   // ref
                                   //     .read(userDataProvider.notifier)
                                   //     .updateTags(_selectedTags);
@@ -583,7 +583,7 @@ class _NoteInputSheetState extends ConsumerState<NoteInputSheet> {
                             borderRadius: BorderRadius.circular(12),
                           ),
                         ),
-                        child: Text('保存'),
+                        child: const Text('保存'),
                       ),
                     ),
                   ],

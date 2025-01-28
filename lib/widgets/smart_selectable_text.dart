@@ -152,11 +152,7 @@ class _SmartSelectableTextState extends ConsumerState<SmartSelectableText> {
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
-      return const SizedBox(
-        height: 20,
-        width: 20,
-        child: CircularProgressIndicator(strokeWidth: 2),
-      );
+      return Text(widget.text, style: widget.style);
     }
 
     if (_error != null) {

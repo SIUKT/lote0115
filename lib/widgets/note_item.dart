@@ -340,12 +340,12 @@ class ExpandableText extends StatefulWidget {
   final TextStyle style;
 
   const ExpandableText({
-    Key? key,
+    super.key,
     required this.parentContext,
     required this.text,
     required this.searchQuery,
     required this.style,
-  }) : super(key: key);
+  });
 
   @override
   State<ExpandableText> createState() => _ExpandableTextState();

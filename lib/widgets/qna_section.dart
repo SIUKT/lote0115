@@ -38,7 +38,7 @@ class QnASection extends ConsumerStatefulWidget {
 class _QnASectionState extends ConsumerState<QnASection> {
   final TextEditingController _questionController = TextEditingController();
   final FocusNode _focusNode = FocusNode();
-  bool _isTranslationMode = false;
+  final bool _isTranslationMode = false;
 
   @override
   void dispose() {
@@ -346,32 +346,53 @@ class _QnASectionState extends ConsumerState<QnASection> {
             alignment:
                 isQuestion ? Alignment.centerRight : Alignment.centerLeft,
             child: GestureDetector(
-              onTap: !isPending && qna != null
-                  ? () => _showQuestionEditSheet(context, qna.question!, qna)
-                  : null,
-              child: Container(
-                constraints: BoxConstraints(
-                  maxWidth: MediaQuery.of(context).size.width - 100,
-                ),
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                decoration: BoxDecoration(
-                  color: Theme.of(context).colorScheme.primaryContainer,
-                  borderRadius: BorderRadius.only(
-                    topLeft: const Radius.circular(16),
-                    topRight: const Radius.circular(16),
-                    bottomLeft:
-                        isQuestion ? const Radius.circular(16) : Radius.zero,
-                    bottomRight:
-                        isQuestion ? Radius.zero : const Radius.circular(16),
+              // onTap: !isPending && qna != null
+              //     ? () => _showQuestionEditSheet(context, qna.question!, qna)
+              //     : null,
+              onTap: () async {
+                await tts.speak(question, language);
+              },
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  // edit button small
+                  if (!isPending && qna != null)
+                    IconButton(
+                      onPressed: () =>
+                          _showQuestionEditSheet(context, qna.question!, qna),
+                      icon: Icon(
+                        Icons.edit,
+                        size: 16,
+                        color: Theme.of(context).colorScheme.secondary,
+                      ),
+                    ),
+                  Container(
+                    constraints: BoxConstraints(
+                      maxWidth: MediaQuery.of(context).size.width - 100,
+                    ),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).colorScheme.primaryContainer,
+                      borderRadius: BorderRadius.only(
+                        topLeft: const Radius.circular(16),
+                        topRight: const Radius.circular(16),
+                        bottomLeft: isQuestion
+                            ? const Radius.circular(16)
+                            : Radius.zero,
+                        bottomRight: isQuestion
+                            ? Radius.zero
+                            : const Radius.circular(16),
+                      ),
+                    ),
+                    child: Text(
+                      question,
+                      style: TextStyle(
+                        color: Theme.of(context).colorScheme.onPrimaryContainer,
+                      ),
+                    ),
                   ),
-                ),
-                child: Text(
-                  question,
-                  style: TextStyle(
-                    color: Theme.of(context).colorScheme.onPrimaryContainer,
-                  ),
-                ),
+                ],
               ),
             ),
           ),

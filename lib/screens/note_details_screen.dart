@@ -9,7 +9,6 @@ import 'package:lote0115/widgets/smart_selectable_text.dart';
 import 'package:lote0115/services/ai_service.dart';
 import 'package:lote0115/providers/note_provider.dart';
 import 'package:lote0115/widgets/qna_section.dart';
-import 'package:lote0115/services/tts/tts_service.dart';
 import 'package:lote0115/providers/tts_provider.dart';
 
 class NoteDetailsScreen extends ConsumerStatefulWidget {
@@ -265,9 +264,9 @@ class _NoteDetailsScreenState extends ConsumerState<NoteDetailsScreen>
     for (var note in notes) {
       if (note.variants != null) {
         for (var variant in note.variants!) {
-          if (!(variant.isPrimary == true)) {
-            allVariants.add((note, variant));
-          }
+          // if (!(variant.isPrimary == true)) {
+          allVariants.add((note, variant));
+          // }
         }
       }
     }
@@ -278,13 +277,18 @@ class _NoteDetailsScreenState extends ConsumerState<NoteDetailsScreen>
     final random = Random();
     final randomPair = allVariants[random.nextInt(allVariants.length)];
 
-    Widget destination = NoteDetailsScreen(
-      note: randomPair.$1,
-      language: randomPair.$2.language,
-    );
+    Widget destination;
+    if (randomPair.$1.primaryLanguage == randomPair.$2.language) {
+      destination = PrimaryDetailsScreen(note: randomPair.$1);
+    } else {
+      destination = NoteDetailsScreen(
+        note: randomPair.$1,
+        language: randomPair.$2.language,
+      );
+    }
 
     // Navigate to note details screen
-    Navigator.pushReplacement(
+    Navigator.push(
       context,
       MaterialPageRoute(
         builder: (context) => destination,
@@ -545,7 +549,7 @@ class _NoteDetailsScreenState extends ConsumerState<NoteDetailsScreen>
                                                           child: ScrambleText(
                                                             sentence:
                                                                 sentence.trim(),
-                                                            collocations: [],
+                                                            collocations: const [],
                                                             language:
                                                                 currentVariant!
                                                                     .language!,

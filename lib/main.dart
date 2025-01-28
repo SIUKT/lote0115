@@ -6,8 +6,9 @@ import 'package:lote0115/models/note.dart';
 import 'package:lote0115/models/user_data.dart';
 import 'package:lote0115/providers/isar_provider.dart';
 import 'package:lote0115/providers/shared_prefs_provider.dart';
-import 'package:lote0115/providers/user_data_provider.dart';
 import 'package:lote0115/screens/home_screen.dart';
+import 'package:lote0115/screens/game_screen.dart';
+import 'package:lote0115/widgets/note_input_sheet.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -37,8 +38,6 @@ class MyApp extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final userState = ref.watch(userDataProvider);
-
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       title: 'lote',
@@ -50,9 +49,90 @@ class MyApp extends ConsumerWidget {
         ),
         useMaterial3: true,
       ),
-      home: userState == null
-          ? const Center(child: CircularProgressIndicator())
-          : const HomeScreen(),
+      home: const MainNavigationScreen(),
+    );
+  }
+}
+
+class MainNavigationScreen extends StatefulWidget {
+  const MainNavigationScreen({super.key});
+
+  @override
+  State<MainNavigationScreen> createState() => _MainNavigationScreenState();
+}
+
+class _MainNavigationScreenState extends State<MainNavigationScreen> {
+  int _selectedIndex = 0;
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: IndexedStack(
+        index: _selectedIndex,
+        children: const [
+          HomeScreen(),
+          GameScreen(),
+        ],
+      ),
+      bottomNavigationBar: Container(
+        // decoration: BoxDecoration(
+        //   border: Border(
+        //     top: BorderSide(
+        //       color: Theme.of(context).dividerColor,
+        //       width: 0.5,
+        //     ),
+        //   ),
+        // ),
+        child: BottomAppBar(
+          height: 60,
+          padding: EdgeInsets.zero,
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: [
+              Expanded(
+                child: GestureDetector(
+                  child: Icon(
+                    Icons.home,
+                    color: _selectedIndex == 0
+                        ? Theme.of(context).colorScheme.primary
+                        : Colors.grey,
+                  ),
+                  onTap: () => setState(() => _selectedIndex = 0),
+                ),
+              ),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  shape: const CircleBorder(),
+                  padding: const EdgeInsets.all(16),
+                  backgroundColor:
+                      Theme.of(context).colorScheme.primaryContainer,
+                ),
+                onPressed: () {
+                  showModalBottomSheet(
+                    context: context,
+                    isScrollControlled: true,
+                    builder: (context) => const NoteInputSheet(),
+                  );
+                },
+                child: const Icon(
+                  Icons.add,
+                ),
+              ),
+              Expanded(
+                child: GestureDetector(
+                  child: Icon(
+                    Icons.games,
+                    color: _selectedIndex == 1
+                        ? Theme.of(context).colorScheme.primary
+                        : Colors.grey,
+                  ),
+                  onTap: () => setState(() => _selectedIndex = 1),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }
