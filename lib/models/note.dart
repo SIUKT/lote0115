@@ -11,6 +11,7 @@ class Note {
   String? context;
   List<String>? tags;
   List<NoteVariant>? variants;
+  List<FollowUp>? followUps;
 
   Note() {
     createdAt = DateTime.now();
@@ -47,6 +48,7 @@ class Note {
       'context': context,
       'tags': tags?.join(','),
       'variants': variants?.map((v) => v.toJson()).toList(),
+      'followUps': followUps?.map((v) => v.toJson()).toList(),
     };
   }
 
@@ -68,6 +70,9 @@ class Note {
               : null
       ..variants = (json['variants'] as List<dynamic>?)
           ?.map((e) => NoteVariant.fromJson(e))
+          .toList()
+      ..followUps = (json['followUps'] as List<dynamic>?)
+          ?.map((e) => FollowUp.fromJson(e))
           .toList();
   }
 
@@ -80,6 +85,7 @@ class Note {
       context,
       tags?.join(','),
       variants?.map((e) => e.toCsvRow()).toList(),
+      followUps?.map((e) => e.toCsvRow()).toList(),
     ];
   }
 }
@@ -153,6 +159,51 @@ class NoteVariant {
       lastReviewAt,
       createdAt,
       editedAt,
+    ];
+  }
+}
+
+@embedded
+class FollowUp {
+  String? content;
+  List<NoteVariant>? variants;
+  DateTime? createdAt;
+  DateTime? updatedAt;
+
+  FollowUp() {
+    createdAt = DateTime.now();
+    updatedAt = DateTime.now();
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'content': content,
+      'variants': variants?.map((e) => e.toJson()).toList(),
+      'createdAt': createdAt,
+      'updatedAt': updatedAt,
+    };
+  }
+
+  factory FollowUp.fromJson(Map<String, dynamic> json) {
+    return FollowUp()
+      ..content = json['content']
+      ..variants = (json['variants'] as List)
+          .map((e) => NoteVariant.fromJson(e))
+          .toList()
+      ..createdAt = json['createdAt'] is String
+          ? DateTime.parse(json['createdAt']).toLocal()
+          : json['createdAt']
+      ..updatedAt = json['updatedAt'] is String
+          ? DateTime.parse(json['updatedAt']).toLocal()
+          : json['updatedAt'];
+  }
+
+  List<dynamic> toCsvRow() {
+    return [
+      content,
+      variants?.map((e) => e.toJson()).toList(),
+      createdAt,
+      updatedAt,
     ];
   }
 }

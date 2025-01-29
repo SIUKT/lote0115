@@ -1,625 +1,613 @@
-import 'dart:math';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lote0115/models/note.dart';
-import 'package:lote0115/screens/primary_details_screen.dart';
-import 'package:lote0115/widgets/scramble_text.dart';
+import 'package:lote0115/providers/user_data_provider.dart';
+import 'package:lote0115/screens/immersion_screen.dart';
 import 'package:lote0115/widgets/smart_selectable_text.dart';
-import 'package:lote0115/services/ai_service.dart';
 import 'package:lote0115/providers/note_provider.dart';
-import 'package:lote0115/widgets/qna_section.dart';
-import 'package:lote0115/providers/tts_provider.dart';
+import 'package:collection/collection.dart';
 
-class NoteDetailsScreen extends ConsumerStatefulWidget {
+class NoteDetailsScreen extends ConsumerWidget {
   final Note note;
-  final String? language;
-
-  const NoteDetailsScreen({super.key, required this.note, this.language});
+  const NoteDetailsScreen({super.key, required this.note});
 
   @override
-  ConsumerState<NoteDetailsScreen> createState() => _NoteDetailsScreenState();
-}
+  Widget build(BuildContext context, WidgetRef ref) {
+    final notes = ref.watch(noteProvider);
+    // 获取最新的note状态
+    final currentNote =
+        notes.firstWhere((n) => n.id == note.id, orElse: () => note);
 
-class _NoteDetailsScreenState extends ConsumerState<NoteDetailsScreen>
-    with TickerProviderStateMixin {
-  final ScrollController _scrollController = ScrollController();
-  String _streamOutput = '';
-  bool _isLoading = false;
-  String? _pendingQuestion;
-  bool _isQuestion = true;
-  late final NoteVariant? currentVariant;
-  bool _isExpanded = true;
-  late AnimationController _rotationController;
-  late Animation<double> _rotationAnimation;
-  late String speakingLanguage;
+    final languages = _getAllLanguages(context, ref, currentNote);
+    final translatingNotes = ref.watch(translatingNotesProvider);
 
-  @override
-  void initState() {
-    super.initState();
-    if (widget.language != null) {
-      currentVariant = widget.note.variants
-          ?.firstWhere((v) => v.language == widget.language);
-      speakingLanguage = widget.language!;
-    } else {
-      currentVariant =
-          widget.note.variants?.firstWhere((v) => v.isCurrent == true);
-      speakingLanguage = currentVariant!.language!;
-    }
-    print('==============currentVariant: ${currentVariant!.content}');
-    _rotationController = AnimationController(
-      duration: const Duration(milliseconds: 300),
-      vsync: this,
-    );
-    _rotationAnimation =
-        Tween<double>(begin: 0, end: 0.5).animate(CurvedAnimation(
-      parent: _rotationController,
-      curve: Curves.easeInOutCubic,
-    ));
-    if (!_isExpanded) {
-      _rotationController.value = 0.5;
-    }
-  }
-
-  @override
-  void dispose() {
-    _scrollController.dispose();
-    _rotationController.dispose();
-    super.dispose();
-  }
-
-  void _handleQuestionSave(QnA qna, String newQuestion) async {
-    setState(() {});
-    // final currentVariant =
-    //     widget.note.variants?.firstWhere((v) => v.isCurrent == true);
-
-    if (currentVariant != null) {
-      // 更新问题
-      qna.question = newQuestion;
-
-      // 保存更新到数据库
-      await ref.read(noteProvider.notifier).updateNoteQnA(widget.note);
-    }
-  }
-
-  void _handleQuestionRegenerate(QnA qna, String newQuestion) async {
-    // final currentVariant =
-    //     widget.note.variants?.firstWhere((v) => v.isCurrent == true);
-
-    if (currentVariant != null) {
-      // 先找到要删除的QnA在列表中的位置
-      final qnaIndex = currentVariant!.qnas?.indexOf(qna) ?? -1;
-      if (qnaIndex == -1) return; // 如果找不到原QnA，直接返回
-
-      // 从列表中移除原QnA
-      final qnas = List<QnA>.from(currentVariant!.qnas ?? []);
-      qnas.removeAt(qnaIndex);
-      currentVariant!.qnas = qnas;
-
-      setState(() {
-        _isLoading = true;
-        _streamOutput = '';
-        _pendingQuestion = newQuestion;
-        _isQuestion = qna.isQuestion ?? true;
-      });
-
-      try {
-        final aiService = ref.read(aiServiceProvider);
-        final stream = qna.isQuestion ?? true
-            ? aiService.getAnswer(
-                widget.note.context,
-                widget.note.primaryContent,
-                currentVariant!.content!,
-                widget.note.primaryLanguage,
-                currentVariant!.language!,
-                newQuestion,
-                [
-                  ...currentVariant!.qnas
-                          ?.map((q) => {
-                                'question': q.question,
-                                'answer': q.answer,
-                              })
-                          .toList() ??
-                      []
-                ],
-              )
-            : aiService.getTranslation(widget.note.context, newQuestion,
-                widget.note.primaryLanguage, currentVariant!.language!);
-
-        await for (final chunk in stream) {
-          if (mounted) {
-            setState(() {
-              _streamOutput += chunk;
-            });
-          }
-        }
-
-        if (mounted) {
-          // 创建新的QnA并插入到原来的位置
-          final newQnA = QnA()
-            ..question = newQuestion
-            ..answer = _streamOutput
-            ..isQuestion = qna.isQuestion;
-
-          qnas.insert(qnaIndex, newQnA);
-          currentVariant!.qnas = qnas;
-
-          // 保存更新到数据库
-          await ref.read(noteProvider.notifier).updateNoteQnA(widget.note);
-
-          setState(() {
-            _isLoading = false;
-            _pendingQuestion = null;
-            _streamOutput = '';
-          });
-        }
-      } catch (e) {
-        if (mounted) {
-          // 发生错误时恢复原QnA
-          qnas.insert(qnaIndex, qna);
-          currentVariant!.qnas = qnas;
-
-          setState(() {
-            _isLoading = false;
-            _pendingQuestion = null;
-            _streamOutput = '';
-          });
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Error: $e')),
-          );
-        }
-      }
-    }
-  }
-
-  Future<void> _submitQuestion(String question, bool isQuestion) async {
-    if (question.isEmpty) return;
-
-    if (currentVariant != null) {
-      final qna = QnA()
-        ..question = question
-        ..answer = ''
-        ..isQuestion = isQuestion;
-
-      setState(() {
-        _isLoading = true;
-        _streamOutput = '';
-        _pendingQuestion = question;
-        _isQuestion = isQuestion;
-      });
-
-      try {
-        final aiService = ref.read(aiServiceProvider);
-        final stream = isQuestion
-            ? aiService.getAnswer(
-                widget.note.context,
-                widget.note.primaryContent,
-                currentVariant!.content!,
-                widget.note.primaryLanguage,
-                currentVariant!.language!,
-                question,
-                [
-                  ...currentVariant!.qnas?.map((q) => {
-                            'question': q.question,
-                            'answer': q.answer,
-                          }) ??
-                      []
-                ],
-              )
-            : aiService.getTranslation(
-                widget.note.context,
-                question,
-                widget.note.primaryLanguage,
-                currentVariant!.language!,
-              );
-
-        await for (final chunk in stream) {
-          if (mounted) {
-            setState(() {
-              _streamOutput += chunk;
-            });
-          }
-        }
-
-        if (mounted) {
-          // 准备数据
-          qna.answer = _streamOutput;
-
-          // 先清除 pending 状态
-          setState(() {
-            _isLoading = false;
-            _pendingQuestion = null;
-            _streamOutput = '';
-          });
-
-          // 等待下一帧，确保 pending item 已经消失
-          await Future.microtask(() {});
-
-          // 然后添加新的 QnA 并保存
-          if (mounted) {
-            currentVariant!.qnas = [...currentVariant!.qnas ?? [], qna];
-            await ref.read(noteProvider.notifier).updateNoteQnA(widget.note);
-          }
-        }
-      } catch (e) {
-        if (mounted) {
-          setState(() {
-            _isLoading = false;
-            _pendingQuestion = null;
-            _streamOutput = '';
-          });
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Error: $e')),
-          );
-        }
-      }
-    }
-  }
-
-  void _openRandomNote(List<Note> notes) {
-    if (notes.isEmpty) return;
-
-    // Collect all variants except the primary one from each note
-    List<(Note, NoteVariant)> allVariants = [];
-    for (var note in notes) {
-      if (note.variants != null) {
-        for (var variant in note.variants!) {
-          // if (!(variant.isPrimary == true)) {
-          allVariants.add((note, variant));
-          // }
-        }
-      }
-    }
-
-    if (allVariants.isEmpty) return;
-
-    // Get a random variant
-    final random = Random();
-    final randomPair = allVariants[random.nextInt(allVariants.length)];
-
-    Widget destination;
-    if (randomPair.$1.primaryLanguage == randomPair.$2.language) {
-      destination = PrimaryDetailsScreen(note: randomPair.$1);
-    } else {
-      destination = NoteDetailsScreen(
-        note: randomPair.$1,
-        language: randomPair.$2.language,
-      );
-    }
-
-    // Navigate to note details screen
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => destination,
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Note Details'),
+        backgroundColor: Theme.of(context).colorScheme.surface,
+      ),
+      body: CustomScrollView(
+        slivers: [
+          _buildContextAndTags(context, currentNote),
+          SliverList.builder(
+            itemCount: (currentNote.followUps?.length ?? 0) + 2,
+            itemBuilder: (context, index) {
+              if (index == 0) {
+                return _buildELement(
+                  context,
+                  ref,
+                  currentNote.primaryContent,
+                  currentNote.variants ?? [],
+                  languages,
+                  translatingNotes,
+                  isPrimary: true,
+                );
+              } else if (index == ((currentNote.followUps?.length ?? 0) + 1)) {
+                return _AddFollowUpWidget(note: currentNote);
+              } else {
+                final followUp = currentNote.followUps![index - 1];
+                return _buildELement(
+                  context,
+                  ref,
+                  followUp.content ?? '',
+                  followUp.variants ?? [],
+                  languages,
+                  translatingNotes,
+                  followUpIndex: index - 1,
+                );
+              }
+            },
+          ),
+          const SliverToBoxAdapter(
+            child: SizedBox(height: 16),
+          ),
+        ],
       ),
     );
   }
 
-  @override
-  Widget build(BuildContext context) {
-    final tts = ref.read(ttsServiceProvider);
-
-    return Scaffold(
-      appBar: AppBar(
-        leadingWidth: 30,
-        title: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ActionChip(
-              side: BorderSide.none,
-              visualDensity: VisualDensity.compact,
-              label: Text(
-                widget.note.primaryLanguage.toUpperCase(),
-                style: TextStyle(
-                    color: speakingLanguage == widget.note.primaryLanguage
-                        ? Colors.white
-                        : null),
+  Widget _buildELement(
+      BuildContext context,
+      WidgetRef ref,
+      String mainContent,
+      List<NoteVariant> variants,
+      List<String> languages,
+      Map<String, String> translatingNotes,
+      {bool isPrimary = false,
+      int? followUpIndex}) {
+    return Theme(
+      data: ThemeData().copyWith(
+        dividerColor: Colors.transparent, // 移除外框
+      ),
+      child: InkWell(
+        onLongPress: !isPrimary
+            ? () {
+                showDialog(
+                  context: context,
+                  builder: (context) => AlertDialog(
+                    title: const Text('Delete Follow-up'),
+                    content: const Text(
+                        'Are you sure you want to delete this follow-up?'),
+                    actions: [
+                      TextButton(
+                        onPressed: () => Navigator.pop(context),
+                        child: const Text('CANCEL'),
+                      ),
+                      TextButton(
+                        onPressed: () {
+                          Navigator.pop(context);
+                          if (followUpIndex != null) {
+                            ref
+                                .read(noteProvider.notifier)
+                                .deleteFollowUp(note, followUpIndex);
+                          }
+                        },
+                        child: Text(
+                          'DELETE',
+                          style: TextStyle(
+                              color: Theme.of(context).colorScheme.error),
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              }
+            : null,
+        child: ExpansionTile(
+          dense: true,
+          visualDensity: VisualDensity.compact,
+          initiallyExpanded: true, // 默认展开
+          tilePadding: EdgeInsets.zero, // 移除内边距
+          showTrailingIcon: false,
+          title: SizedBox(
+            width: 45,
+            child: Center(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 12.0),
+                    child: Text(
+                      note.primaryLanguage.toUpperCase(),
+                      style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
+                          color: Theme.of(context).colorScheme.primary),
+                    ),
+                  ),
+                  Expanded(
+                    child: Text(
+                      mainContent,
+                      style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.normal,
+                      ),
+                    ),
+                  ),
+                ],
               ),
-              backgroundColor: speakingLanguage == widget.note.primaryLanguage
-                  ? Theme.of(context).primaryColor
-                  : null,
-              onPressed: () {
-                if (speakingLanguage != widget.note.primaryLanguage) {
-                  setState(() {
-                    speakingLanguage = widget.note.primaryLanguage;
-                  });
-                } else {
-                  tts.speak(widget.note.primaryContent, speakingLanguage);
-                }
-              },
             ),
-            if (widget.note.primaryLanguage != currentVariant!.language) ...[
-              const SizedBox(width: 8),
-              ActionChip(
-                side: BorderSide.none,
-                visualDensity: VisualDensity.compact,
-                label: Text(
-                  currentVariant!.language!.toUpperCase(),
-                  style: TextStyle(
-                      color: speakingLanguage == currentVariant!.language
-                          ? Colors.white
-                          : null),
+          ),
+          children: [
+            ...languages
+                .where((language) => language != note.primaryLanguage)
+                .map((language) {
+              final variant = variants.firstWhereOrNull(
+                (v) => v.language?.toLowerCase() == language.toLowerCase(),
+              );
+              final isCurrentLanguageTranslating =
+                  translatingNotes[mainContent] == language;
+              return InkWell(
+                onTap: variant == null
+                    ? null
+                    : () => Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (context) => ImmersionScreen(
+                              note: note,
+                              language: language,
+                            ),
+                          ),
+                        ),
+                onLongPress: () => print('long pressed'),
+                child: Padding(
+                  padding: const EdgeInsets.only(
+                      top: 8, bottom: 8, right: 12), // 与标题保持一致的上间距
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      SizedBox(
+                        width: 45,
+                        child: Center(
+                          child: Text(
+                            language.toUpperCase(),
+                            style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w500,
+                                color: Theme.of(context).colorScheme.primary),
+                          ),
+                        ),
+                      ),
+                      if (variant == null && !isCurrentLanguageTranslating)
+                        GestureDetector(
+                          onTap: () {
+                            print('cccccc');
+                            final noteIndex =
+                                ref.read(noteProvider).indexOf(note);
+                            final notes = ref.read(noteProvider);
+                            print('notes: ${notes.map((n) => n.id)}');
+                            print('note: ${note.toJson()}');
+                            print('noteIndex: $noteIndex');
+                            if (noteIndex != -1) {
+                              if (isPrimary) {
+                                print('nbbbbb');
+                                ref
+                                    .read(noteProvider.notifier)
+                                    .switchVariant(note, language);
+                              } else {
+                                print('aaaaa');
+                                final followUpIndex = ref
+                                    .read(noteProvider)
+                                    .firstWhere((n) => n.id == note.id)
+                                    .followUps!
+                                    .indexWhere(
+                                        (f) => f.content == mainContent);
+                                ref
+                                    .read(noteProvider.notifier)
+                                    .generateFollowUpVariant(
+                                        note, followUpIndex, language);
+                              }
+                            }
+                          },
+                          child: Text(
+                            '生成',
+                            style: TextStyle(
+                                color: Theme.of(context).colorScheme.primary),
+                          ),
+                        )
+                      else if (isCurrentLanguageTranslating)
+                        Padding(
+                          padding: const EdgeInsets.only(right: 8.0),
+                          child: SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Theme.of(context).colorScheme.primary,
+                            ),
+                          ),
+                        ),
+                      if (variant != null || isCurrentLanguageTranslating) ...[
+                        Expanded(
+                          child: Consumer(
+                            builder: (context, ref, _) {
+                              final notes = ref.watch(noteProvider);
+                              final currentNote = notes.firstWhere(
+                                (n) => n.id == note.id,
+                                orElse: () => note,
+                              );
+                              final currentVariant =
+                                  currentNote.variants?.firstWhereOrNull(
+                                (v) =>
+                                    v.language?.toLowerCase() ==
+                                    language.toLowerCase(),
+                              );
+                              return Text(currentVariant?.content ?? '');
+                            },
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
                 ),
-                backgroundColor: speakingLanguage == currentVariant!.language
-                    ? Theme.of(context).primaryColor
-                    : null,
-                onPressed: () {
-                  if (speakingLanguage != currentVariant!.language) {
-                    setState(() {
-                      speakingLanguage = currentVariant!.language!;
-                    });
-                  } else {
-                    tts.speak(currentVariant!.content!, speakingLanguage);
-                  }
-                },
+              );
+            })
+          ],
+        ),
+      ),
+    );
+  }
+
+  List<String> _getAllLanguages(
+      BuildContext context, WidgetRef ref, Note note) {
+    final userData = ref.watch(userDataProvider);
+    final userLanguages = userData?.languages ?? [];
+    final variants = note.variants ?? [];
+    final translatingNotes = ref.watch(translatingNotesProvider);
+
+    // 创建一个包含所有语言的列表
+    final allLanguages = {...userLanguages};
+    for (var variant in variants) {
+      if (variant.language != null) {
+        allLanguages.add(variant.language!.toLowerCase());
+      }
+    }
+
+    // 将语言列表转换为列表并排序
+    final sortedLanguages = allLanguages.toList()
+      ..sort((a, b) {
+        final aInUserLanguages = userLanguages.contains(a);
+        final bInUserLanguages = userLanguages.contains(b);
+        if (aInUserLanguages && !bInUserLanguages) return -1;
+        if (!aInUserLanguages && bInUserLanguages) return 1;
+        final aIndex = userLanguages.indexOf(a);
+        final bIndex = userLanguages.indexOf(b);
+        if (aIndex != -1 && bIndex != -1) return aIndex.compareTo(bIndex);
+        return a.compareTo(b);
+      });
+
+    // 把primary language移到最前面
+    final primaryLanguage = note.primaryLanguage.toLowerCase();
+    if (primaryLanguage.isNotEmpty &&
+        sortedLanguages.contains(primaryLanguage)) {
+      sortedLanguages.remove(primaryLanguage);
+      sortedLanguages.insert(0, primaryLanguage);
+    }
+    return sortedLanguages;
+  }
+
+  Widget _buildAllLanguages(BuildContext context, WidgetRef ref, Note note) {
+    final userData = ref.watch(userDataProvider);
+    final userLanguages = userData?.languages ?? [];
+    final variants = note.variants ?? [];
+    final translatingNotes = ref.watch(translatingNotesProvider);
+
+    // 创建一个包含所有语言的列表
+    final allLanguages = {...userLanguages};
+    for (var variant in variants) {
+      if (variant.language != null) {
+        allLanguages.add(variant.language!.toLowerCase());
+      }
+    }
+
+    // 将语言列表转换为列表并排序
+    final sortedLanguages = allLanguages.toList()
+      ..sort((a, b) {
+        final aInUserLanguages = userLanguages.contains(a);
+        final bInUserLanguages = userLanguages.contains(b);
+        if (aInUserLanguages && !bInUserLanguages) return -1;
+        if (!aInUserLanguages && bInUserLanguages) return 1;
+        final aIndex = userLanguages.indexOf(a);
+        final bIndex = userLanguages.indexOf(b);
+        if (aIndex != -1 && bIndex != -1) return aIndex.compareTo(bIndex);
+        return a.compareTo(b);
+      });
+
+    // 把primary language移到最前面
+    final primaryLanguage = note.primaryLanguage.toLowerCase();
+    if (primaryLanguage.isNotEmpty &&
+        sortedLanguages.contains(primaryLanguage)) {
+      sortedLanguages.remove(primaryLanguage);
+      sortedLanguages.insert(0, primaryLanguage);
+    }
+
+    return SliverList(
+      delegate: SliverChildBuilderDelegate(
+        (context, index) {
+          final language = sortedLanguages[index];
+          final variant = variants.firstWhereOrNull(
+            (v) => v.language?.toLowerCase() == language.toLowerCase(),
+          );
+          final isUserLanguage = userLanguages.contains(language);
+          final isCurrentLanguageTranslating =
+              translatingNotes[note.primaryContent] == language;
+
+          return InkWell(
+            onTap: () {
+              if (variant != null) {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => ImmersionScreen(
+                      note: note,
+                      language: language,
+                    ),
+                  ),
+                );
+              }
+            },
+            child: Container(
+              decoration: BoxDecoration(
+                border: Border(
+                  bottom: BorderSide(
+                    color:
+                        Theme.of(context).dividerColor.withValues(alpha: 0.1),
+                  ),
+                ),
+              ),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Text(
+                        language.toUpperCase(),
+                        style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                              color: isUserLanguage
+                                  ? Theme.of(context).colorScheme.primary
+                                  : Theme.of(context).colorScheme.onSurface,
+                            ),
+                      ),
+                      const SizedBox(width: 12),
+                      if (variant == null && !isCurrentLanguageTranslating)
+                        GestureDetector(
+                          onTap: () {
+                            final noteIndex =
+                                ref.read(noteProvider).indexOf(note);
+                            if (noteIndex != -1) {
+                              ref
+                                  .read(noteProvider.notifier)
+                                  .switchVariant(note, language);
+                            }
+                          },
+                          child: Text(
+                            '生成'.toUpperCase(),
+                            style: TextStyle(
+                                color: Theme.of(context).colorScheme.primary),
+                          ),
+                        )
+                      else if (isCurrentLanguageTranslating)
+                        const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        ),
+                    ],
+                  ),
+                  if (variant != null || isCurrentLanguageTranslating) ...[
+                    Expanded(
+                      child: Consumer(
+                        builder: (context, ref, _) {
+                          final notes = ref.watch(noteProvider);
+                          final currentNote = notes.firstWhere(
+                            (n) => n.id == note.id,
+                            orElse: () => note,
+                          );
+                          final currentVariant =
+                              currentNote.variants?.firstWhereOrNull(
+                            (v) =>
+                                v.language?.toLowerCase() ==
+                                language.toLowerCase(),
+                          );
+                          return Text(currentVariant?.content ?? '');
+                        },
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          );
+        },
+        childCount: sortedLanguages.length,
+      ),
+    );
+  }
+
+  Widget _buildContextAndTags(BuildContext context, Note note) {
+    final hasContext = note.context != null && note.context!.isNotEmpty;
+    final hasTags = note.tags != null && note.tags!.isNotEmpty;
+
+    if (!hasContext && !hasTags) {
+      return const SliverToBoxAdapter(child: SizedBox.shrink());
+    }
+
+    return SliverToBoxAdapter(
+      child: Container(
+        decoration: BoxDecoration(
+          border: Border(
+            bottom: BorderSide(
+              color: Theme.of(context).dividerColor.withValues(alpha: 0.1),
+            ),
+          ),
+        ),
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (hasContext) ...[
+              Text(
+                'Context',
+                style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                      color: Theme.of(context).colorScheme.primary,
+                    ),
+              ),
+              const SizedBox(height: 4),
+              SmartSelectableText(
+                text: note.context!,
+                language: note.language,
+              ),
+              if (hasTags) const SizedBox(height: 16),
+            ],
+            if (hasTags) ...[
+              Wrap(
+                spacing: 8,
+                runSpacing: 4,
+                children: note.tags!.map((tag) {
+                  return Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: Theme.of(context)
+                          .colorScheme
+                          .primaryContainer
+                          .withValues(alpha: 0.5),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: Text(
+                      tag,
+                      style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                            color: Theme.of(context)
+                                .colorScheme
+                                .onPrimaryContainer,
+                          ),
+                    ),
+                  );
+                }).toList(),
               ),
             ],
           ],
         ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.star_border_outlined),
-            onPressed: () {
-              final notes = ref.read(noteProvider);
-              _openRandomNote(notes);
-            },
+      ),
+    );
+  }
+}
+
+class _AddFollowUpWidget extends ConsumerStatefulWidget {
+  final Note note;
+
+  const _AddFollowUpWidget({required this.note});
+
+  @override
+  _AddFollowUpWidgetState createState() => _AddFollowUpWidgetState();
+}
+
+class _AddFollowUpWidgetState extends ConsumerState<_AddFollowUpWidget> {
+  bool _isEditing = false;
+  final _controller = TextEditingController();
+  final _focusNode = FocusNode();
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    _focusNode.dispose();
+    super.dispose();
+  }
+
+  void _startEditing() {
+    setState(() {
+      _isEditing = true;
+    });
+    _focusNode.requestFocus();
+  }
+
+  void _submitContent() {
+    if (_controller.text.trim().isNotEmpty) {
+      ref
+          .read(noteProvider.notifier)
+          .addFollowUp(widget.note, _controller.text.trim());
+      _controller.clear();
+    }
+    setState(() {
+      _isEditing = false;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (!_isEditing) {
+      return InkWell(
+        onTap: _startEditing,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          child: Row(
+            children: [
+              Icon(
+                Icons.add,
+                color: Theme.of(context).colorScheme.primary,
+              ),
+              const SizedBox(width: 8),
+              Text(
+                'Add Follow-up',
+                style: TextStyle(
+                  color: Theme.of(context).colorScheme.primary,
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    return Padding(
+      padding: const EdgeInsets.all(16.0),
+      child: Row(
+        children: [
+          Expanded(
+            child: TextField(
+              controller: _controller,
+              focusNode: _focusNode,
+              decoration: const InputDecoration(
+                hintText: 'Enter follow-up content',
+                border: OutlineInputBorder(),
+              ),
+              onSubmitted: (_) => _submitContent(),
+            ),
           ),
           IconButton(
-            icon: const Icon(Icons.home),
+            icon: const Icon(Icons.check),
+            onPressed: _submitContent,
+          ),
+          IconButton(
+            icon: const Icon(Icons.close),
             onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => PrimaryDetailsScreen(
-                    note: widget.note,
-                  ),
-                ),
-              );
+              _controller.clear();
+              setState(() {
+                _isEditing = false;
+              });
             },
           ),
         ],
-      ),
-      body: SafeArea(
-        child: Stack(
-          children: [
-            currentVariant == null
-                ? const Center(child: CircularProgressIndicator())
-                : QnASection(
-                    qnas: currentVariant!.qnas ?? [],
-                    pendingQuestion: _pendingQuestion,
-                    streamOutput: _streamOutput,
-                    isQuestion: _isQuestion,
-                    isLoading: _isLoading,
-                    onQuestionSave: _handleQuestionSave,
-                    onQuestionRegenerate: _handleQuestionRegenerate,
-                    onSubmit: _submitQuestion,
-                    primaryLanguage: widget.note.primaryLanguage,
-                    language: speakingLanguage,
-                  ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(16),
-                child: Material(
-                  elevation: 0,
-                  color: Theme.of(context)
-                      .colorScheme
-                      .primaryContainer
-                      .withOpacity(0.95),
-                  child: Container(
-                    decoration: BoxDecoration(
-                      border: Border.all(
-                        color: Theme.of(context).dividerColor.withOpacity(0.1),
-                        width: 1,
-                      ),
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                    child: AnimatedContainer(
-                      duration: const Duration(milliseconds: 400),
-                      curve: Curves.easeInOutCubic,
-                      constraints: BoxConstraints(
-                        maxHeight: _isExpanded
-                            ? MediaQuery.of(context).size.height * 0.6
-                            : 56,
-                      ),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          // 展开/收起按钮区域
-                          InkWell(
-                            onTap: () {
-                              setState(() {
-                                _isExpanded = !_isExpanded;
-                              });
-                              if (_isExpanded) {
-                                _rotationController.forward();
-                              } else {
-                                _rotationController.reverse();
-                              }
-                            },
-                            child: Padding(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 16, vertical: 8),
-                              child: Row(
-                                mainAxisAlignment:
-                                    MainAxisAlignment.spaceBetween,
-                                crossAxisAlignment: CrossAxisAlignment.center,
-                                children: [
-                                  Text(
-                                    currentVariant!.createdAt
-                                        .toString()
-                                        .split('.')
-                                        .first,
-                                    style: Theme.of(context)
-                                        .textTheme
-                                        .bodySmall
-                                        ?.copyWith(
-                                          color: Theme.of(context)
-                                              .colorScheme
-                                              .primary,
-                                        ),
-                                  ),
-                                  RotationTransition(
-                                    turns: _rotationAnimation,
-                                    child: Icon(
-                                      Icons.expand_more,
-                                      color: Theme.of(context)
-                                          .colorScheme
-                                          .onSurfaceVariant,
-                                      size: 20,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                          // 分隔线
-                          AnimatedOpacity(
-                            duration: const Duration(milliseconds: 300),
-                            opacity: _isExpanded ? 1.0 : 0.0,
-                            child: Container(
-                              height: 1,
-                              color: Theme.of(context)
-                                  .dividerColor
-                                  .withOpacity(0.1),
-                            ),
-                          ),
-                          // 内容区域
-                          if (_isExpanded)
-                            Flexible(
-                              child: SingleChildScrollView(
-                                padding:
-                                    const EdgeInsets.fromLTRB(16, 8, 16, 16),
-                                child: AnimatedOpacity(
-                                  duration: const Duration(milliseconds: 300),
-                                  opacity: _isExpanded ? 1.0 : 0.0,
-                                  child: Column(
-                                    mainAxisSize: MainAxisSize.min,
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      if (widget.note.context != null &&
-                                          widget.note.context!.isNotEmpty) ...[
-                                        Text(
-                                          widget.note.context!,
-                                          style: Theme.of(context)
-                                              .textTheme
-                                              .bodyLarge,
-                                          textAlign: TextAlign.left,
-                                        ),
-                                        const SizedBox(height: 12),
-                                      ],
-                                      if (currentVariant!.content! !=
-                                          widget.note.primaryContent) ...[
-                                        SmartSelectableText(
-                                          text: widget.note.primaryContent,
-                                          style: Theme.of(context)
-                                              .textTheme
-                                              .bodyLarge!
-                                              .copyWith(
-                                                  color: Theme.of(context)
-                                                      .colorScheme
-                                                      .onSurfaceVariant),
-                                          language: widget.note.primaryLanguage,
-                                          onWordTap: (word) {
-                                            debugPrint('Tapped word: $word');
-                                          },
-                                        ),
-                                        const SizedBox(height: 8),
-                                      ],
-                                      ...currentVariant!.content!
-                                          .split(RegExp(r'\n{2,}|\n'))
-                                          .map((paragraph) => Column(
-                                                crossAxisAlignment:
-                                                    CrossAxisAlignment.start,
-                                                children: paragraph
-                                                    .split(RegExp(
-                                                        r'(?<=[.!?。！？])\s*'))
-                                                    .where((sentence) =>
-                                                        sentence
-                                                            .trim()
-                                                            .isNotEmpty)
-                                                    .map((sentence) => Padding(
-                                                          padding:
-                                                              const EdgeInsets
-                                                                  .only(
-                                                                  bottom: 8.0),
-                                                          child: ScrambleText(
-                                                            sentence:
-                                                                sentence.trim(),
-                                                            collocations: const [],
-                                                            language:
-                                                                currentVariant!
-                                                                    .language!,
-                                                          ),
-                                                        ))
-                                                    .toList(),
-                                              )),
-                                      SmartSelectableText(
-                                        text: currentVariant!.content!,
-                                        style: Theme.of(context)
-                                            .textTheme
-                                            .bodyLarge,
-                                        language: currentVariant!.language!,
-                                        onWordTap: (word) {
-                                          debugPrint('Tapped word: $word');
-                                        },
-                                      ),
-                                      if (widget.note.tags != null &&
-                                          widget.note.tags!.isNotEmpty) ...[
-                                        const SizedBox(height: 16),
-                                        Wrap(
-                                          spacing: 6,
-                                          runSpacing: 6,
-                                          children: widget.note.tags!
-                                              .map(
-                                                (tag) => Container(
-                                                  padding: const EdgeInsets
-                                                      .symmetric(
-                                                      horizontal: 8,
-                                                      vertical: 4),
-                                                  decoration: BoxDecoration(
-                                                    color: Theme.of(context)
-                                                        .colorScheme
-                                                        .primaryContainer
-                                                        .withOpacity(0.2),
-                                                    borderRadius:
-                                                        BorderRadius.circular(
-                                                            8),
-                                                  ),
-                                                  child: Text(
-                                                    '#$tag',
-                                                    style: Theme.of(context)
-                                                        .textTheme
-                                                        .bodySmall!
-                                                        .copyWith(
-                                                          color:
-                                                              Theme.of(context)
-                                                                  .colorScheme
-                                                                  .primary,
-                                                        ),
-                                                  ),
-                                                ),
-                                              )
-                                              .toList(),
-                                        ),
-                                      ],
-                                    ],
-                                  ),
-                                ),
-                              ),
-                            ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ),
       ),
     );
   }

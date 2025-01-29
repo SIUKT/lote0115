@@ -5,8 +5,8 @@ import 'dart:math';
 import 'package:lote0115/models/note.dart';
 import 'package:lote0115/providers/note_provider.dart';
 import 'package:lote0115/providers/user_data_provider.dart';
+import 'package:lote0115/screens/immersion_screen.dart';
 import 'package:lote0115/screens/note_details_screen.dart';
-import 'package:lote0115/screens/primary_details_screen.dart';
 import 'package:lote0115/screens/settings_screen.dart';
 import 'package:lote0115/widgets/note_input_sheet.dart';
 import 'package:lote0115/widgets/note_item.dart';
@@ -160,9 +160,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
     Widget destination;
     if (randomPair.$1.primaryLanguage == randomPair.$2.language) {
-      destination = PrimaryDetailsScreen(note: randomPair.$1);
+      destination = NoteDetailsScreen(note: randomPair.$1);
     } else {
-      destination = NoteDetailsScreen(
+      destination = ImmersionScreen(
         note: randomPair.$1,
         language: randomPair.$2.language,
       );

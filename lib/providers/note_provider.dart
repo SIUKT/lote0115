@@ -11,7 +11,8 @@ final noteProvider = StateNotifierProvider<NoteNotifier, List<Note>>((ref) {
 });
 
 // Provider for tracking notes that are currently being translated
-final translatingNotesProvider = StateProvider<Map<int, String>>((ref) => {});
+final translatingNotesProvider =
+    StateProvider<Map<String, String>>((ref) => {});
 
 class NoteNotifier extends StateNotifier<List<Note>> {
   final IsarService isarService;
@@ -44,6 +45,65 @@ class NoteNotifier extends StateNotifier<List<Note>> {
 
     await isarService.saveNote(note);
     await _loadNotes();
+  }
+
+  Future<void> addFollowUp(Note note, String content) async {
+    final followUp = FollowUp()
+      ..content = content
+      ..variants = [
+        NoteVariant()
+          ..language = note.primaryLanguage
+          ..content = content
+          ..isPrimary = true
+          ..isCurrent = true
+      ];
+    note.followUps = List<FollowUp>.from(note.followUps ?? [])..add(followUp);
+    await isarService.saveNote(note);
+    await _loadNotes();
+  }
+
+  Future<void> deleteFollowUp(Note note, int followUpIndex) async {
+    if (note.followUps != null && followUpIndex < note.followUps!.length) {
+      note.followUps = List<FollowUp>.from(note.followUps!)
+        ..removeAt(followUpIndex);
+      await isarService.saveNote(note);
+      await _loadNotes();
+    }
+  }
+
+  Future<void> generateFollowUpVariant(
+      Note note, int followUpIndex, String language) async {
+    final noteIndex = state.indexWhere((n) => n.id == note.id);
+    if (noteIndex == -1) return;
+    final followUp = note.followUps![followUpIndex];
+    if (followUp.variants == null) return;
+
+    final variants = List<NoteVariant>.from(followUp.variants ?? []);
+
+    // If variant doesn't exist, create a placeholder and start translation
+    final newVariant = NoteVariant()
+      ..language = language
+      ..content = '翻译中...'
+      ..isCurrent = true;
+
+    variants.add(newVariant);
+
+    // Update all variants' isCurrent status
+    for (var variant in variants) {
+      variant.isCurrent = variant.language == language;
+    }
+
+    // Update note in database and state
+    final updatedNote = note..followUps![followUpIndex].variants = variants;
+    await isarService.saveNote(updatedNote);
+    state = [
+      ...state.sublist(0, noteIndex),
+      updatedNote,
+      ...state.sublist(noteIndex + 1),
+    ];
+
+    await streamTranslation(note, language, noteIndex,
+        followUpIndex: followUpIndex);
   }
 
   Future<void> regenerateVariant(Note note, String language) async {
@@ -151,34 +211,53 @@ class NoteNotifier extends StateNotifier<List<Note>> {
     ];
   }
 
-  Future<void> streamTranslation(
-      Note note, String language, int noteIndex) async {
+  Future<void> streamTranslation(Note note, String language, int noteIndex,
+      {int? followUpIndex}) async {
+    final isFollowUp = followUpIndex != null;
+    final contentToTranslate = isFollowUp
+        ? note.followUps![followUpIndex].content!
+        : note.primaryContent;
+
     // Start streaming translation
     ref.read(translatingNotesProvider.notifier).state = {
       ...ref.read(translatingNotesProvider),
-      note.id: language,
+      contentToTranslate: language,
     };
 
     final aiService = ref.read(aiServiceProvider);
     String translatedContent = '';
 
-    // 创建一个新的 Note 实例来存储流式更新
+    // Create a new Note instance for streaming updates
     final streamingNote = Note.fromJson(note.toJson());
-    final streamingVariant = streamingNote.variants!.firstWhere(
-      (v) => v.language == language,
-    );
+    final streamingVariant = isFollowUp
+        ? streamingNote.followUps![followUpIndex].variants!.firstWhere(
+            (v) => v.language == language,
+            orElse: () {
+              final newVariant = NoteVariant()
+                ..language = language
+                ..content = ''
+                ..isPrimary = false
+                ..isCurrent = false;
+              streamingNote.followUps![followUpIndex].variants ??= [];
+              streamingNote.followUps![followUpIndex].variants!.add(newVariant);
+              return newVariant;
+            },
+          )
+        : streamingNote.variants!.firstWhere(
+            (v) => v.language == language,
+          );
 
     try {
       await for (final chunk in aiService.getTranslation(
         note.context,
-        note.primaryContent,
-        note.primaryLanguage,
+        contentToTranslate,
+        note.primaryLanguage, // For followUps we don't track primary language
         language,
       )) {
         translatedContent += chunk;
         streamingVariant.content = translatedContent;
 
-        // 更新状态，但保持相同的Note实例
+        // Update state while keeping the same Note instance
         state = [
           ...state.sublist(0, noteIndex),
           streamingNote,
@@ -186,21 +265,39 @@ class NoteNotifier extends StateNotifier<List<Note>> {
         ];
       }
 
-      // 翻译完成后，更新原始note并保存到数据库
-      final originalVariant = note.variants!.firstWhere(
-        (v) => v.language == language,
-      );
-      originalVariant.content = translatedContent;
+      // After translation is complete, update original note and save to database
+      if (isFollowUp) {
+        final originalVariant =
+            note.followUps![followUpIndex].variants!.firstWhere(
+          (v) => v.language == language,
+          orElse: () {
+            final newVariant = NoteVariant()
+              ..language = language
+              ..content = translatedContent
+              ..isPrimary = false
+              ..isCurrent = false;
+            note.followUps![followUpIndex].variants ??= [];
+            note.followUps![followUpIndex].variants!.add(newVariant);
+            return newVariant;
+          },
+        );
+        originalVariant.content = translatedContent;
+      } else {
+        final originalVariant = note.variants!.firstWhere(
+          (v) => v.language == language,
+        );
+        originalVariant.content = translatedContent;
+      }
       await isarService.saveNote(note);
 
-      // 从翻译中列表移除
+      // Remove from translating list
       ref.read(translatingNotesProvider.notifier).state = {
-        ...ref.read(translatingNotesProvider)..remove(note.id),
+        ...ref.read(translatingNotesProvider)..remove(contentToTranslate),
       };
     } catch (e) {
-      // 发生错误时，从翻译中列表移除
+      // Remove from translating list on error
       ref.read(translatingNotesProvider.notifier).state = {
-        ...ref.read(translatingNotesProvider)..remove(note.id),
+        ...ref.read(translatingNotesProvider)..remove(contentToTranslate),
       };
       rethrow;
     }

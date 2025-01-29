@@ -37,33 +37,39 @@ const NoteSchema = CollectionSchema(
       name: r'createdAt',
       type: IsarType.dateTime,
     ),
-    r'language': PropertySchema(
+    r'followUps': PropertySchema(
       id: 4,
+      name: r'followUps',
+      type: IsarType.objectList,
+      target: r'FollowUp',
+    ),
+    r'language': PropertySchema(
+      id: 5,
       name: r'language',
       type: IsarType.string,
     ),
     r'primaryContent': PropertySchema(
-      id: 5,
+      id: 6,
       name: r'primaryContent',
       type: IsarType.string,
     ),
     r'primaryLanguage': PropertySchema(
-      id: 6,
+      id: 7,
       name: r'primaryLanguage',
       type: IsarType.string,
     ),
     r'tags': PropertySchema(
-      id: 7,
+      id: 8,
       name: r'tags',
       type: IsarType.stringList,
     ),
     r'updatedAt': PropertySchema(
-      id: 8,
+      id: 9,
       name: r'updatedAt',
       type: IsarType.dateTime,
     ),
     r'variants': PropertySchema(
-      id: 9,
+      id: 10,
       name: r'variants',
       type: IsarType.objectList,
       target: r'NoteVariant',
@@ -76,7 +82,11 @@ const NoteSchema = CollectionSchema(
   idName: r'id',
   indexes: {},
   links: {},
-  embeddedSchemas: {r'NoteVariant': NoteVariantSchema, r'QnA': QnASchema},
+  embeddedSchemas: {
+    r'NoteVariant': NoteVariantSchema,
+    r'QnA': QnASchema,
+    r'FollowUp': FollowUpSchema
+  },
   getId: _noteGetId,
   getLinks: _noteGetLinks,
   attach: _noteAttach,
@@ -100,6 +110,19 @@ int _noteEstimateSize(
     final value = object.context;
     if (value != null) {
       bytesCount += 3 + value.length * 3;
+    }
+  }
+  {
+    final list = object.followUps;
+    if (list != null) {
+      bytesCount += 3 + list.length * 3;
+      {
+        final offsets = allOffsets[FollowUp]!;
+        for (var i = 0; i < list.length; i++) {
+          final value = list[i];
+          bytesCount += FollowUpSchema.estimateSize(value, offsets, allOffsets);
+        }
+      }
     }
   }
   bytesCount += 3 + object.language.length * 3;
@@ -144,13 +167,19 @@ void _noteSerialize(
   writer.writeString(offsets[1], object.content);
   writer.writeString(offsets[2], object.context);
   writer.writeDateTime(offsets[3], object.createdAt);
-  writer.writeString(offsets[4], object.language);
-  writer.writeString(offsets[5], object.primaryContent);
-  writer.writeString(offsets[6], object.primaryLanguage);
-  writer.writeStringList(offsets[7], object.tags);
-  writer.writeDateTime(offsets[8], object.updatedAt);
+  writer.writeObjectList<FollowUp>(
+    offsets[4],
+    allOffsets,
+    FollowUpSchema.serialize,
+    object.followUps,
+  );
+  writer.writeString(offsets[5], object.language);
+  writer.writeString(offsets[6], object.primaryContent);
+  writer.writeString(offsets[7], object.primaryLanguage);
+  writer.writeStringList(offsets[8], object.tags);
+  writer.writeDateTime(offsets[9], object.updatedAt);
   writer.writeObjectList<NoteVariant>(
-    offsets[9],
+    offsets[10],
     allOffsets,
     NoteVariantSchema.serialize,
     object.variants,
@@ -167,11 +196,17 @@ Note _noteDeserialize(
   object.cloudId = reader.readStringOrNull(offsets[0]);
   object.context = reader.readStringOrNull(offsets[2]);
   object.createdAt = reader.readDateTimeOrNull(offsets[3]);
+  object.followUps = reader.readObjectList<FollowUp>(
+    offsets[4],
+    FollowUpSchema.deserialize,
+    allOffsets,
+    FollowUp(),
+  );
   object.id = id;
-  object.tags = reader.readStringList(offsets[7]);
-  object.updatedAt = reader.readDateTimeOrNull(offsets[8]);
+  object.tags = reader.readStringList(offsets[8]);
+  object.updatedAt = reader.readDateTimeOrNull(offsets[9]);
   object.variants = reader.readObjectList<NoteVariant>(
-    offsets[9],
+    offsets[10],
     NoteVariantSchema.deserialize,
     allOffsets,
     NoteVariant(),
@@ -195,16 +230,23 @@ P _noteDeserializeProp<P>(
     case 3:
       return (reader.readDateTimeOrNull(offset)) as P;
     case 4:
-      return (reader.readString(offset)) as P;
+      return (reader.readObjectList<FollowUp>(
+        offset,
+        FollowUpSchema.deserialize,
+        allOffsets,
+        FollowUp(),
+      )) as P;
     case 5:
       return (reader.readString(offset)) as P;
     case 6:
       return (reader.readString(offset)) as P;
     case 7:
-      return (reader.readStringList(offset)) as P;
+      return (reader.readString(offset)) as P;
     case 8:
-      return (reader.readDateTimeOrNull(offset)) as P;
+      return (reader.readStringList(offset)) as P;
     case 9:
+      return (reader.readDateTimeOrNull(offset)) as P;
+    case 10:
       return (reader.readObjectList<NoteVariant>(
         offset,
         NoteVariantSchema.deserialize,
@@ -786,6 +828,106 @@ extension NoteQueryFilter on QueryBuilder<Note, Note, QFilterCondition> {
         upper: upper,
         includeUpper: includeUpper,
       ));
+    });
+  }
+
+  QueryBuilder<Note, Note, QAfterFilterCondition> followUpsIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNull(
+        property: r'followUps',
+      ));
+    });
+  }
+
+  QueryBuilder<Note, Note, QAfterFilterCondition> followUpsIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNotNull(
+        property: r'followUps',
+      ));
+    });
+  }
+
+  QueryBuilder<Note, Note, QAfterFilterCondition> followUpsLengthEqualTo(
+      int length) {
+    return QueryBuilder.apply(this, (query) {
+      return query.listLength(
+        r'followUps',
+        length,
+        true,
+        length,
+        true,
+      );
+    });
+  }
+
+  QueryBuilder<Note, Note, QAfterFilterCondition> followUpsIsEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.listLength(
+        r'followUps',
+        0,
+        true,
+        0,
+        true,
+      );
+    });
+  }
+
+  QueryBuilder<Note, Note, QAfterFilterCondition> followUpsIsNotEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.listLength(
+        r'followUps',
+        0,
+        false,
+        999999,
+        true,
+      );
+    });
+  }
+
+  QueryBuilder<Note, Note, QAfterFilterCondition> followUpsLengthLessThan(
+    int length, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.listLength(
+        r'followUps',
+        0,
+        true,
+        length,
+        include,
+      );
+    });
+  }
+
+  QueryBuilder<Note, Note, QAfterFilterCondition> followUpsLengthGreaterThan(
+    int length, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.listLength(
+        r'followUps',
+        length,
+        include,
+        999999,
+        true,
+      );
+    });
+  }
+
+  QueryBuilder<Note, Note, QAfterFilterCondition> followUpsLengthBetween(
+    int lower,
+    int upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.listLength(
+        r'followUps',
+        lower,
+        includeLower,
+        upper,
+        includeUpper,
+      );
     });
   }
 
@@ -1631,6 +1773,13 @@ extension NoteQueryFilter on QueryBuilder<Note, Note, QFilterCondition> {
 }
 
 extension NoteQueryObject on QueryBuilder<Note, Note, QFilterCondition> {
+  QueryBuilder<Note, Note, QAfterFilterCondition> followUpsElement(
+      FilterQuery<FollowUp> q) {
+    return QueryBuilder.apply(this, (query) {
+      return query.object(q, r'followUps');
+    });
+  }
+
   QueryBuilder<Note, Note, QAfterFilterCondition> variantsElement(
       FilterQuery<NoteVariant> q) {
     return QueryBuilder.apply(this, (query) {
@@ -1941,6 +2090,12 @@ extension NoteQueryProperty on QueryBuilder<Note, Note, QQueryProperty> {
   QueryBuilder<Note, DateTime?, QQueryOperations> createdAtProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'createdAt');
+    });
+  }
+
+  QueryBuilder<Note, List<FollowUp>?, QQueryOperations> followUpsProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'followUps');
     });
   }
 
@@ -3267,6 +3422,530 @@ extension NoteVariantQueryObject
       FilterQuery<QnA> q) {
     return QueryBuilder.apply(this, (query) {
       return query.object(q, r'qnas');
+    });
+  }
+}
+
+// coverage:ignore-file
+// ignore_for_file: duplicate_ignore, non_constant_identifier_names, constant_identifier_names, invalid_use_of_protected_member, unnecessary_cast, prefer_const_constructors, lines_longer_than_80_chars, require_trailing_commas, inference_failure_on_function_invocation, unnecessary_parenthesis, unnecessary_raw_strings, unnecessary_null_checks, join_return_with_assignment, prefer_final_locals, avoid_js_rounded_ints, avoid_positional_boolean_parameters, always_specify_types
+
+const FollowUpSchema = Schema(
+  name: r'FollowUp',
+  id: -3976074331475440442,
+  properties: {
+    r'content': PropertySchema(
+      id: 0,
+      name: r'content',
+      type: IsarType.string,
+    ),
+    r'createdAt': PropertySchema(
+      id: 1,
+      name: r'createdAt',
+      type: IsarType.dateTime,
+    ),
+    r'updatedAt': PropertySchema(
+      id: 2,
+      name: r'updatedAt',
+      type: IsarType.dateTime,
+    ),
+    r'variants': PropertySchema(
+      id: 3,
+      name: r'variants',
+      type: IsarType.objectList,
+      target: r'NoteVariant',
+    )
+  },
+  estimateSize: _followUpEstimateSize,
+  serialize: _followUpSerialize,
+  deserialize: _followUpDeserialize,
+  deserializeProp: _followUpDeserializeProp,
+);
+
+int _followUpEstimateSize(
+  FollowUp object,
+  List<int> offsets,
+  Map<Type, List<int>> allOffsets,
+) {
+  var bytesCount = offsets.last;
+  {
+    final value = object.content;
+    if (value != null) {
+      bytesCount += 3 + value.length * 3;
+    }
+  }
+  {
+    final list = object.variants;
+    if (list != null) {
+      bytesCount += 3 + list.length * 3;
+      {
+        final offsets = allOffsets[NoteVariant]!;
+        for (var i = 0; i < list.length; i++) {
+          final value = list[i];
+          bytesCount +=
+              NoteVariantSchema.estimateSize(value, offsets, allOffsets);
+        }
+      }
+    }
+  }
+  return bytesCount;
+}
+
+void _followUpSerialize(
+  FollowUp object,
+  IsarWriter writer,
+  List<int> offsets,
+  Map<Type, List<int>> allOffsets,
+) {
+  writer.writeString(offsets[0], object.content);
+  writer.writeDateTime(offsets[1], object.createdAt);
+  writer.writeDateTime(offsets[2], object.updatedAt);
+  writer.writeObjectList<NoteVariant>(
+    offsets[3],
+    allOffsets,
+    NoteVariantSchema.serialize,
+    object.variants,
+  );
+}
+
+FollowUp _followUpDeserialize(
+  Id id,
+  IsarReader reader,
+  List<int> offsets,
+  Map<Type, List<int>> allOffsets,
+) {
+  final object = FollowUp();
+  object.content = reader.readStringOrNull(offsets[0]);
+  object.createdAt = reader.readDateTimeOrNull(offsets[1]);
+  object.updatedAt = reader.readDateTimeOrNull(offsets[2]);
+  object.variants = reader.readObjectList<NoteVariant>(
+    offsets[3],
+    NoteVariantSchema.deserialize,
+    allOffsets,
+    NoteVariant(),
+  );
+  return object;
+}
+
+P _followUpDeserializeProp<P>(
+  IsarReader reader,
+  int propertyId,
+  int offset,
+  Map<Type, List<int>> allOffsets,
+) {
+  switch (propertyId) {
+    case 0:
+      return (reader.readStringOrNull(offset)) as P;
+    case 1:
+      return (reader.readDateTimeOrNull(offset)) as P;
+    case 2:
+      return (reader.readDateTimeOrNull(offset)) as P;
+    case 3:
+      return (reader.readObjectList<NoteVariant>(
+        offset,
+        NoteVariantSchema.deserialize,
+        allOffsets,
+        NoteVariant(),
+      )) as P;
+    default:
+      throw IsarError('Unknown property with id $propertyId');
+  }
+}
+
+extension FollowUpQueryFilter
+    on QueryBuilder<FollowUp, FollowUp, QFilterCondition> {
+  QueryBuilder<FollowUp, FollowUp, QAfterFilterCondition> contentIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNull(
+        property: r'content',
+      ));
+    });
+  }
+
+  QueryBuilder<FollowUp, FollowUp, QAfterFilterCondition> contentIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNotNull(
+        property: r'content',
+      ));
+    });
+  }
+
+  QueryBuilder<FollowUp, FollowUp, QAfterFilterCondition> contentEqualTo(
+    String? value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'content',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<FollowUp, FollowUp, QAfterFilterCondition> contentGreaterThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'content',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<FollowUp, FollowUp, QAfterFilterCondition> contentLessThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'content',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<FollowUp, FollowUp, QAfterFilterCondition> contentBetween(
+    String? lower,
+    String? upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'content',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<FollowUp, FollowUp, QAfterFilterCondition> contentStartsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.startsWith(
+        property: r'content',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<FollowUp, FollowUp, QAfterFilterCondition> contentEndsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.endsWith(
+        property: r'content',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<FollowUp, FollowUp, QAfterFilterCondition> contentContains(
+      String value,
+      {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.contains(
+        property: r'content',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<FollowUp, FollowUp, QAfterFilterCondition> contentMatches(
+      String pattern,
+      {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.matches(
+        property: r'content',
+        wildcard: pattern,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<FollowUp, FollowUp, QAfterFilterCondition> contentIsEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'content',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<FollowUp, FollowUp, QAfterFilterCondition> contentIsNotEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        property: r'content',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<FollowUp, FollowUp, QAfterFilterCondition> createdAtIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNull(
+        property: r'createdAt',
+      ));
+    });
+  }
+
+  QueryBuilder<FollowUp, FollowUp, QAfterFilterCondition> createdAtIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNotNull(
+        property: r'createdAt',
+      ));
+    });
+  }
+
+  QueryBuilder<FollowUp, FollowUp, QAfterFilterCondition> createdAtEqualTo(
+      DateTime? value) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'createdAt',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<FollowUp, FollowUp, QAfterFilterCondition> createdAtGreaterThan(
+    DateTime? value, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'createdAt',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<FollowUp, FollowUp, QAfterFilterCondition> createdAtLessThan(
+    DateTime? value, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'createdAt',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<FollowUp, FollowUp, QAfterFilterCondition> createdAtBetween(
+    DateTime? lower,
+    DateTime? upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'createdAt',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+      ));
+    });
+  }
+
+  QueryBuilder<FollowUp, FollowUp, QAfterFilterCondition> updatedAtIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNull(
+        property: r'updatedAt',
+      ));
+    });
+  }
+
+  QueryBuilder<FollowUp, FollowUp, QAfterFilterCondition> updatedAtIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNotNull(
+        property: r'updatedAt',
+      ));
+    });
+  }
+
+  QueryBuilder<FollowUp, FollowUp, QAfterFilterCondition> updatedAtEqualTo(
+      DateTime? value) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'updatedAt',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<FollowUp, FollowUp, QAfterFilterCondition> updatedAtGreaterThan(
+    DateTime? value, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'updatedAt',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<FollowUp, FollowUp, QAfterFilterCondition> updatedAtLessThan(
+    DateTime? value, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'updatedAt',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<FollowUp, FollowUp, QAfterFilterCondition> updatedAtBetween(
+    DateTime? lower,
+    DateTime? upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'updatedAt',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+      ));
+    });
+  }
+
+  QueryBuilder<FollowUp, FollowUp, QAfterFilterCondition> variantsIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNull(
+        property: r'variants',
+      ));
+    });
+  }
+
+  QueryBuilder<FollowUp, FollowUp, QAfterFilterCondition> variantsIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNotNull(
+        property: r'variants',
+      ));
+    });
+  }
+
+  QueryBuilder<FollowUp, FollowUp, QAfterFilterCondition> variantsLengthEqualTo(
+      int length) {
+    return QueryBuilder.apply(this, (query) {
+      return query.listLength(
+        r'variants',
+        length,
+        true,
+        length,
+        true,
+      );
+    });
+  }
+
+  QueryBuilder<FollowUp, FollowUp, QAfterFilterCondition> variantsIsEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.listLength(
+        r'variants',
+        0,
+        true,
+        0,
+        true,
+      );
+    });
+  }
+
+  QueryBuilder<FollowUp, FollowUp, QAfterFilterCondition> variantsIsNotEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.listLength(
+        r'variants',
+        0,
+        false,
+        999999,
+        true,
+      );
+    });
+  }
+
+  QueryBuilder<FollowUp, FollowUp, QAfterFilterCondition>
+      variantsLengthLessThan(
+    int length, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.listLength(
+        r'variants',
+        0,
+        true,
+        length,
+        include,
+      );
+    });
+  }
+
+  QueryBuilder<FollowUp, FollowUp, QAfterFilterCondition>
+      variantsLengthGreaterThan(
+    int length, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.listLength(
+        r'variants',
+        length,
+        include,
+        999999,
+        true,
+      );
+    });
+  }
+
+  QueryBuilder<FollowUp, FollowUp, QAfterFilterCondition> variantsLengthBetween(
+    int lower,
+    int upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.listLength(
+        r'variants',
+        lower,
+        includeLower,
+        upper,
+        includeUpper,
+      );
+    });
+  }
+}
+
+extension FollowUpQueryObject
+    on QueryBuilder<FollowUp, FollowUp, QFilterCondition> {
+  QueryBuilder<FollowUp, FollowUp, QAfterFilterCondition> variantsElement(
+      FilterQuery<NoteVariant> q) {
+    return QueryBuilder.apply(this, (query) {
+      return query.object(q, r'variants');
     });
   }
 }

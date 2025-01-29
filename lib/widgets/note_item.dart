@@ -5,8 +5,8 @@ import 'package:intl/intl.dart';
 import 'package:lote0115/models/note.dart';
 import 'package:lote0115/providers/note_provider.dart';
 import 'package:lote0115/providers/tts_provider.dart';
+import 'package:lote0115/screens/immersion_screen.dart';
 import 'package:lote0115/screens/note_details_screen.dart';
-import 'package:lote0115/screens/primary_details_screen.dart';
 import 'package:lote0115/widgets/note_input_sheet.dart';
 import 'dart:ui' as ui;
 
@@ -65,14 +65,14 @@ class NoteItem extends ConsumerWidget {
               Navigator.push(
                 context,
                 MaterialPageRoute(
-                  builder: (context) => PrimaryDetailsScreen(note: note),
+                  builder: (context) => NoteDetailsScreen(note: note),
                 ),
               );
             } else {
               Navigator.push(
                 context,
                 MaterialPageRoute(
-                  builder: (context) => NoteDetailsScreen(note: note),
+                  builder: (context) => ImmersionScreen(note: note),
                 ),
               );
             }
@@ -190,6 +190,7 @@ class NoteItem extends ConsumerWidget {
                           final language = languages[index];
 
                           final isCurrentLanguage = note.language == language;
+                          final isPrimary = note.primaryLanguage == language;
                           final isTranslating =
                               ref.watch(translatingNotesProvider)[note.id] ==
                                   language;
@@ -203,6 +204,7 @@ class NoteItem extends ConsumerWidget {
                               .firstOrNull
                               ?.qnas
                               ?.length;
+                          final int? followUpsCount = note.followUps?.length;
                           return Stack(
                             children: [
                               ActionChip(
@@ -269,12 +271,30 @@ class NoteItem extends ConsumerWidget {
                                   }
                                 },
                               ),
-                              if (qnasCount != null && qnasCount > 0)
+                              if (!isPrimary &&
+                                  qnasCount != null &&
+                                  qnasCount > 0)
                                 Positioned(
                                   top: 3,
                                   right: 8,
                                   child: Text(
                                     qnasCount.toString(),
+                                    style: TextStyle(
+                                      fontSize: 6,
+                                      color: isCurrentLanguage
+                                          ? Colors.white
+                                          : null,
+                                    ),
+                                  ),
+                                ),
+                              if (isPrimary &&
+                                  followUpsCount != null &&
+                                  followUpsCount > 0)
+                                Positioned(
+                                  top: 3,
+                                  right: 8,
+                                  child: Text(
+                                    followUpsCount.toString(),
                                     style: TextStyle(
                                       fontSize: 6,
                                       color: isCurrentLanguage

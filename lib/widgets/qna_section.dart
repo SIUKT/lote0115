@@ -286,7 +286,7 @@ class _QnASectionState extends ConsumerState<QnASection> {
             color: Theme.of(context).colorScheme.surface,
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.05),
+                color: Colors.black.withValues(alpha: 0.05),
                 blurRadius: 3,
                 offset: const Offset(0, -1),
               ),
@@ -307,7 +307,7 @@ class _QnASectionState extends ConsumerState<QnASection> {
                 child: Row(
                   children: [
                     Text(
-                      '输入问题...',
+                      '试试用${widget.language}来提问...',
                       style: TextStyle(
                         color: Theme.of(context).colorScheme.onSurfaceVariant,
                       ),
@@ -353,17 +353,23 @@ class _QnASectionState extends ConsumerState<QnASection> {
                 await tts.speak(question, language);
               },
               child: Row(
-                mainAxisAlignment: MainAxisAlignment.end,
+                mainAxisAlignment: isQuestion
+                    ? MainAxisAlignment.end
+                    : MainAxisAlignment.start,
                 children: [
                   // edit button small
-                  if (!isPending && qna != null)
-                    IconButton(
-                      onPressed: () =>
-                          _showQuestionEditSheet(context, qna.question!, qna),
-                      icon: Icon(
-                        Icons.edit,
-                        size: 16,
-                        color: Theme.of(context).colorScheme.secondary,
+                  if (isQuestion && !isPending && qna != null)
+                    SizedBox(
+                      height: 36,
+                      // width: 30,
+                      child: IconButton(
+                        onPressed: () =>
+                            _showQuestionEditSheet(context, qna.question!, qna),
+                        icon: Icon(
+                          Icons.edit,
+                          size: 16,
+                          color: Theme.of(context).colorScheme.secondary,
+                        ),
                       ),
                     ),
                   Container(
@@ -392,6 +398,19 @@ class _QnASectionState extends ConsumerState<QnASection> {
                       ),
                     ),
                   ),
+                  if (!isQuestion && !isPending && qna != null)
+                    SizedBox(
+                      height: 36,
+                      child: IconButton(
+                        onPressed: () =>
+                            _showQuestionEditSheet(context, qna.question!, qna),
+                        icon: Icon(
+                          Icons.edit,
+                          size: 16,
+                          color: Theme.of(context).colorScheme.secondary,
+                        ),
+                      ),
+                    ),
                 ],
               ),
             ),

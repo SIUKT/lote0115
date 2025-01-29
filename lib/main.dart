@@ -67,72 +67,86 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: IndexedStack(
-        index: _selectedIndex,
-        children: const [
-          HomeScreen(),
-          GameScreen(),
-        ],
+      // body: IndexedStack(
+      //   index: _selectedIndex,
+      //   children: const [
+      //     HomeScreen(),
+      //     GameScreen(),
+      //   ],
+      // ),
+      body: const HomeScreen(),
+      floatingActionButton: FloatingActionButton(
+        shape: const CircleBorder(),
+        elevation: 0,
+        onPressed: () {
+          showModalBottomSheet(
+            isScrollControlled: true,
+            context: context,
+            builder: (context) => const NoteInputSheet(),
+          );
+        },
+        child: const Icon(Icons.add),
       ),
-      bottomNavigationBar: Container(
-        // decoration: BoxDecoration(
-        //   border: Border(
-        //     top: BorderSide(
-        //       color: Theme.of(context).dividerColor,
-        //       width: 0.5,
-        //     ),
-        //   ),
-        // ),
-        child: BottomAppBar(
-          height: 60,
-          padding: EdgeInsets.zero,
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
-            children: [
-              Expanded(
-                child: GestureDetector(
-                  child: Icon(
-                    Icons.home,
-                    color: _selectedIndex == 0
-                        ? Theme.of(context).colorScheme.primary
-                        : Colors.grey,
-                  ),
-                  onTap: () => setState(() => _selectedIndex = 0),
-                ),
-              ),
-              ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  shape: const CircleBorder(),
-                  padding: const EdgeInsets.all(16),
-                  backgroundColor:
-                      Theme.of(context).colorScheme.primaryContainer,
-                ),
-                onPressed: () {
-                  showModalBottomSheet(
-                    context: context,
-                    isScrollControlled: true,
-                    builder: (context) => const NoteInputSheet(),
-                  );
-                },
-                child: const Icon(
-                  Icons.add,
-                ),
-              ),
-              Expanded(
-                child: GestureDetector(
-                  child: Icon(
-                    Icons.games,
-                    color: _selectedIndex == 1
-                        ? Theme.of(context).colorScheme.primary
-                        : Colors.grey,
-                  ),
-                  onTap: () => setState(() => _selectedIndex = 1),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
+      floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
+      // bottomNavigationBar: Container(
+      //   // decoration: BoxDecoration(
+      //   //   border: Border(
+      //   //     top: BorderSide(
+      //   //       color: Theme.of(context).dividerColor,
+      //   //       width: 0.5,
+      //   //     ),
+      //   //   ),
+      //   // ),
+      //   child: BottomAppBar(
+      //     height: 60,
+      //     padding: EdgeInsets.zero,
+      //     child: Row(
+      //       mainAxisAlignment: MainAxisAlignment.spaceAround,
+      //       children: [
+      //         Expanded(
+      //           child: GestureDetector(
+      //             child: Icon(
+      //               Icons.home,
+      //               color: _selectedIndex == 0
+      //                   ? Theme.of(context).colorScheme.primary
+      //                   : Colors.grey,
+      //             ),
+      //             onTap: () => setState(() => _selectedIndex = 0),
+      //           ),
+      //         ),
+      //         ElevatedButton(
+      //           style: ElevatedButton.styleFrom(
+      //             shape: const CircleBorder(),
+      //             padding: const EdgeInsets.all(16),
+      //             backgroundColor:
+      //                 Theme.of(context).colorScheme.primaryContainer,
+      //           ),
+      //           onPressed: () {
+      //             showModalBottomSheet(
+      //               context: context,
+      //               isScrollControlled: true,
+      //               builder: (context) => const NoteInputSheet(),
+      //             );
+      //           },
+      //           child: const Icon(
+      //             Icons.add,
+      //           ),
+      //         ),
+      //         Expanded(
+      //           child: GestureDetector(
+      //             child: Icon(
+      //               Icons.games,
+      //               color: _selectedIndex == 1
+      //                   ? Theme.of(context).colorScheme.primary
+      //                   : Colors.grey,
+      //             ),
+      //             onTap: () => setState(() => _selectedIndex = 1),
+      //           ),
+      //         ),
+      //       ],
+      //     ),
+      //   ),
+      // ),
     );
   }
 }

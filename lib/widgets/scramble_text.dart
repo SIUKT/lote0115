@@ -9,7 +9,7 @@ import '../providers/tokenizer_provider.dart';
 class ScrambleText extends ConsumerStatefulWidget {
   final String sentence;
   final String? translation;
-  final List<String> collocations;
+  final List<String>? collocations;
   final String language;
   final Function(bool)? onCheckResult;
 
@@ -17,7 +17,7 @@ class ScrambleText extends ConsumerStatefulWidget {
     super.key,
     required this.sentence,
     this.translation,
-    required this.collocations,
+    this.collocations,
     required this.language,
     this.onCheckResult,
   });
@@ -161,50 +161,49 @@ class _ScrambleTextState extends ConsumerState<ScrambleText>
         Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            if (widget.translation != null)
-              Container(
-                margin:
-                    const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [
-                      Colors.blue.shade50,
-                      Colors.blue.shade100.withOpacity(0.3),
-                    ],
-                  ),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(
-                    color: Colors.blue.shade100,
-                    width: 1,
-                  ),
-                ),
-                child: Row(
-                  children: [
-                    Icon(
-                      Icons.translate_rounded,
-                      color: Colors.blue.shade700,
-                      size: 20,
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Text(
-                        widget.translation!,
-                        style: TextStyle(
-                          fontSize: 16,
-                          color: Colors.blue.shade900,
-                          height: 1.4,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
+            // if (widget.translation != null)
+            // Container(
+            //   margin: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
+            //   padding: const EdgeInsets.all(16),
+            //   decoration: BoxDecoration(
+            //     gradient: LinearGradient(
+            //       begin: Alignment.topLeft,
+            //       end: Alignment.bottomRight,
+            //       colors: [
+            //         Colors.blue.shade50,
+            //         Colors.blue.shade100.withValues(alpha: 0.3),
+            //       ],
+            //     ),
+            //     borderRadius: BorderRadius.circular(12),
+            //     border: Border.all(
+            //       color: Colors.blue.shade100,
+            //       width: 1,
+            //     ),
+            //   ),
+            //   child: Row(
+            //     children: [
+            //       Icon(
+            //         Icons.translate_rounded,
+            //         color: Colors.blue.shade700,
+            //         size: 20,
+            //       ),
+            //       const SizedBox(width: 12),
+            //       Expanded(
+            //         child: Text(
+            //           widget.translation!,
+            //           style: TextStyle(
+            //             fontSize: 16,
+            //             color: Colors.blue.shade900,
+            //             height: 1.4,
+            //           ),
+            //         ),
+            //       ),
+            //     ],
+            //   ),
+            // ),
             Container(
               margin:
-                  const EdgeInsets.only(top: 0, bottom: 16), // 增加底部边距，为按钮留出空间
+                  const EdgeInsets.only(top: 0, bottom: 0), // 增加底部边距，为按钮留出空间
               // decoration: BoxDecoration(
               //   color: Colors.grey.shade50,
               //   borderRadius: BorderRadius.circular(12),
@@ -215,9 +214,9 @@ class _ScrambleTextState extends ConsumerState<ScrambleText>
               // ),
               child: ReorderableWrap(
                 controller: _scrollController,
-                spacing: 8.0,
-                runSpacing: 12.0,
-                padding: const EdgeInsets.all(16),
+                spacing: 4.0,
+                runSpacing: 6.0,
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
                 needsLongPressDraggable: false,
                 buildDraggableFeedback: (context, constraints, child) {
                   return Material(
@@ -321,17 +320,17 @@ class _ScrambleTextState extends ConsumerState<ScrambleText>
     return AnimatedContainer(
       duration: const Duration(milliseconds: 200),
       curve: Curves.easeOutCubic,
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
         color: isCorrect ? Colors.green.shade50 : Colors.white,
         borderRadius: BorderRadius.circular(8),
         boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.08),
-            offset: const Offset(0, 2),
-            blurRadius: 8,
-            spreadRadius: 0,
-          ),
+          // BoxShadow(
+          //   color: Colors.black.withOpacity(0.08),
+          //   offset: const Offset(0, 2),
+          //   blurRadius: 8,
+          //   spreadRadius: 0,
+          // ),
         ],
         border: Border.all(
           color:
